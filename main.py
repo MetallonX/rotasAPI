@@ -1,9 +1,12 @@
 #DESAFIO DEV JR - MILENIO CAPITAL#
 
 #AUTHOR: LUCAS COSTA DE ANDRADE#
+from typing import Optional
 from fastapi import FastAPI, Path
-from modeloGraph import payload
-from modeloGraph import calcRoutes, createAdjNodes
+from modeloGraph import calcShortestPath, payload
+from modeloGraph import calc_rotas, createAdjNodes, shortestPath
+
+# uvicorn main:app --reload <- link do local host + /docs para visualizar e testar os endpoints e seus resultados
 
 graphBD: payload = []
 
@@ -16,14 +19,6 @@ app = FastAPI()
 def desc():
     return("API para o cálculo de rotas de um grafo")
 
-
-#Retorna todos os grafos salvos até o momento#
-@app.get("/retornagrafos")
-def retornagrafos():
-    if (graphBD == []):
-        return "Não tem nenhum grafo registrado!"
-    else:
-        return graphBD
 
 #recebe as rotas do grafo e salva com o id do grafo#
 
@@ -61,12 +56,32 @@ def returnAdjacents(graphId: int):
 
 
 @app.post("/routes/{graphId}/from/{town1}/to/{town2}")
-def routes(graphId: int, town1: str, town2: str):
+def routes(graphId: int, town1: str, town2: str, maxStops: Optional[int] = None):
     if (graphBD == []):
         return "HTTP NOT FOUND"
     for i in graphBD:
         if(graphId == i.id):
             graph = createAdjNodes(i)
-            return calcRoutes(graph, town1, town2)
+            return calc_rotas.getRoutes(graph, town1, '', town2, maxStops)
         elif i == graphBD[-1]:
             return "HTTP NOT FOUND"
+
+
+@app.post("/distance/{graphId}/from/{town1}/to/{town2}")
+def fastestPath(graphId: int, town1: str, town2: str):
+    if(town1 == town2):
+        shortPath = shortestPath(distance=0, path=[town1, town2])
+        return shortPath
+    else:
+        for i in graphBD:
+            if(graphId == i.id):
+                graph = createAdjNodes(i)
+                routes = calc_rotas.getRoutes(
+                    graph, town1, '', town2, maxStops=None)
+                if(routes["routes"] == []):
+                    shortPath = shortestPath(distance=-1, path=[town1, town2])
+                    return shortPath
+                else:
+                    return calcShortestPath(routes, i)
+            elif(i == graphBD[-1] and i.id != graphId):
+                return "HTTP NOT FOUND"
